@@ -1,7 +1,7 @@
 # HeksaDnD  
 Gra przeglądarkowa inspirowana klimatem **Dungeons & Dragons**, oparta na heksagonalnej mapie i mechanikach turowych. Projekt tworzony z myślą o lokalnej rozgrywce dla kilku graczy na jednym urządzeniu.
 
-## 🎮 Opis projektu  
+## Opis projektu  
 HeksaDnD to prototyp gry taktycznej, w której gracze poruszają się po heksagonalnej planszy, wykonują akcje, walczą i eksplorują świat.  
 Celem projektu jest stworzenie lekkiej, przeglądarkowej wersji gry RPG z elementami strategii i systemem tur.
 
@@ -13,7 +13,7 @@ W repozytorium znajdują się m.in.:
 
 ---
 
-## 🛠️ Technologie użyte w projekcie  
+## Technologie użyte w projekcie  
 
 | Technologia | Zastosowanie |
 |------------|--------------|
@@ -26,18 +26,23 @@ W repozytorium znajdują się m.in.:
 
 ---
 
-## 🚀 Jak uruchomić projekt lokalnie
+## Jak uruchomić projekt lokalnie
 
 ### 1. Sklonuj repozytorium
 ```bash
 git clone https://github.com/C-BULLKA/HeksaDnD.git
 cd HeksaDnD
+```
+
 ### 2. Zainstaluj zależności
 ```bash
 npm install
+```
+
 ### 3. Uruchom tryb deweloperski
 ```bash
 npm run dev
+```
 
 ### Po uruchomieniu Vite wyświetli lokalny adres, np.:
 http://localhost:3000
@@ -45,8 +50,9 @@ http://localhost:3000
 ### 4. Budowanie wersji produkcyjnej
 ```bash
 npm run build
+```
 
-## 📁 Struktura projektu (skrót)
+## Struktura projektu (skrót)
 ```bash
 HeksaDnD/
  ├── src/                # logika gry, renderer, komponenty
@@ -55,22 +61,23 @@ HeksaDnD/
  ├── vite.config.js      # konfiguracja Vite
  ├── tailwind.config.js  # konfiguracja TailwindCSS
  └── postcss.config.js   # konfiguracja PostCSS
+```
 
-## 🎯 Funkcjonalności (obecne i planowane)
-###✔️ heksagonalna mapa
+## Funkcjonalności (obecne i planowane)
+✔️ heksagonalna mapa
 
-###✔️ system tur
+✔️ system tur
 
-###✔️ podstawowe akcje graczy
+✔️ podstawowe akcje graczy
 
-###⏳ system walki
+⏳ system walki
 
-###⏳ klasy postaci i statystyki
+⏳ klasy postaci i statystyki
 
-###⏳ zdarzenia losowe
+⏳ zdarzenia losowe
 
-###⏳ multiplayer lokalny (tura po turze)
-
-## 📌 Cel projektu
+## Cel projektu
 
 ### Stworzenie modularnej, łatwej do rozbudowy gry taktycznej w przeglądarce, która pozwoli na szybkie prototypowanie mechanik RPG i testowanie pomysłów na heksagonalnej planszy.
+
+#### Made with  ♥️ by Piotr Cebula
