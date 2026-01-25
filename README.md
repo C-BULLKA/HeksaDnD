@@ -75,4 +75,4 @@ HeksaDnD/
 
 ### Stworzenie modularnej, łatwej do rozbudowy gry taktycznej w przeglądarce, która pozwoli na szybkie prototypowanie mechanik RPG i testowanie pomysłów na heksagonalnej planszy.
 
-# Made with ♥️ by Piotr Cebula
+#### Made with ♥️ by Piotr Cebula
