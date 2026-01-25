@@ -54,6 +54,9 @@ const createInitialState = (): GameState => ({
   attackRangeHexes: [],
   gameLog: [],
   winner: null,
+  currentPlacingPlayer: 0,
+  charactersPerPlayer: 2,
+  selectedTerrainType: 'normal',
 });
 
 // ============================================
@@ -86,36 +89,23 @@ export const useGame = () => {
   // INICJALIZACJA GRY
   // ==========================================
 
-  const startGame = useCallback((playerCount: number) => {
+  const startGame = useCallback((config: { playerCount: number; width: number; height: number }) => {
     const players: Player[] = [];
-    const allCharacters: Character[] = [];
 
     // Stwórz graczy
-    for (let i = 0; i < playerCount; i++) {
+    for (let i = 0; i < config.playerCount; i++) {
       const player = createPlayer(i, `Gracz ${i + 1}`, PLAYER_COLORS[i]);
       players.push(player);
-
-      // Stwórz postacie dla gracza (2 postacie na gracza)
-      const startPositions = getPlayerStartPositions(i, playerCount);
-      
-      for (let j = 0; j < 2; j++) {
-        const position = startPositions[j];
-        const character = createCharacter(
-          i,
-          { q: position.q, r: position.r, type: 'normal' },
-          `${player.name} ${j === 0 ? 'A' : 'B'}`
-        );
-        player.characters.push(character);
-        allCharacters.push(character);
-      }
     }
 
-    setState({
-      ...createInitialState(),
-      phase: 'playing',
+    setState(prev => ({
+      ...prev,
+      phase: 'map-building',
       players,
-      currentPlayerIndex: 0,
-    });
+      gridWidth: config.width,
+      gridHeight: config.height,
+      map: createEmptyMap(),
+    }));
 
     addLogEntry(`Rozpoczęto grę! Gracze: ${players.map(p => p.name).join(', ')}`);
   }, [addLogEntry]);
@@ -126,9 +116,9 @@ export const useGame = () => {
 
   const getPlayerStartPositions = (playerIndex: number, playerCount: number): Hex[] => {
     const positions: Hex[] = [];
-    
+
     switch (playerCount) {
-      case 2:
+      case 2: {
         // Przeciwne strony mapy
         if (playerIndex === 0) {
           positions.push({ q: 2, r: 2, type: 'normal' as const });
@@ -138,7 +128,8 @@ export const useGame = () => {
           positions.push({ q: GRID_WIDTH - 3, r: GRID_HEIGHT - 4, type: 'normal' as const });
         }
         break;
-      case 3:
+      }
+      case 3: {
         // Trójkąt
         if (playerIndex === 0) {
           positions.push({ q: 2, r: 2, type: 'normal' as const });
@@ -151,7 +142,8 @@ export const useGame = () => {
           positions.push({ q: Math.floor(GRID_WIDTH / 2), r: GRID_HEIGHT - 4, type: 'normal' as const });
         }
         break;
-      case 4:
+      }
+      case 4: {
         // Narożniki
         const corners: Hex[][] = [
           [{ q: 2, r: 2, type: 'normal' as const }, { q: 2, r: 3, type: 'normal' as const }],
@@ -161,8 +153,9 @@ export const useGame = () => {
         ];
         positions.push(...corners[playerIndex]);
         break;
+      }
     }
-    
+
     return positions;
   };
 
@@ -263,7 +256,7 @@ export const useGame = () => {
   }, [addLogEntry]);
 
   const performCharacterAttack = useCallback((targetHex: Hex, attackType: 'melee' | 'ranged') => {
-    let result: any = null;
+    let result: import('@/types/game').AttackResult | null = null;
     
     setState(prev => {
       if (!prev.selectedCharacter || !prev.selectedCharacter.canAttack) {
@@ -399,6 +392,93 @@ export const useGame = () => {
     });
   }, []);
 
+  const selectTerrainType = useCallback((type: HexType) => {
+    setState(prev => ({ ...prev, selectedTerrainType: type }));
+  }, []);
+
+  const startPlacementPhase = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      phase: 'placement',
+      currentPlacingPlayer: 0,
+    }));
+    addLogEntry('Rozpoczęto fazę rozmieszczania postaci');
+  }, [addLogEntry]);
+
+  const placeCharacter = useCallback((hex: Hex) => {
+    setState(prev => {
+      if (prev.phase !== 'placement') return prev;
+
+      const currentPlayer = prev.players[prev.currentPlacingPlayer];
+      if (!currentPlayer) return prev;
+
+      const placedCount = prev.players.flatMap(p => p.characters).filter(c => c.playerId === currentPlayer.id).length;
+      if (placedCount >= prev.charactersPerPlayer) return prev;
+
+      // Check if hex is empty
+      const allCharacters = prev.players.flatMap(p => p.characters);
+      if (allCharacters.some(c => c.hex.q === hex.q && c.hex.r === hex.r)) {
+        addLogEntry('To pole jest już zajęte!');
+        return prev;
+      }
+
+      // Create new character
+      const character = createCharacter(
+        currentPlayer.id,
+        { ...hex, type: 'normal' },
+        `${currentPlayer.name} ${String.fromCharCode(65 + placedCount)}`
+      );
+
+      const updatedPlayers = prev.players.map(player =>
+        player.id === currentPlayer.id
+          ? { ...player, characters: [...player.characters, character] }
+          : player
+      );
+
+      // Check if all players have placed their characters
+      const newPlacedCount = placedCount + 1;
+      let nextPlacingPlayer = prev.currentPlacingPlayer;
+
+      if (newPlacedCount >= prev.charactersPerPlayer) {
+        // Current player is done, find next player who needs to place
+        let found = false;
+        for (let i = 0; i < prev.players.length; i++) {
+          const playerIndex = (prev.currentPlacingPlayer + i + 1) % prev.players.length;
+          const playerChars = updatedPlayers[playerIndex].characters.length;
+          if (playerChars < prev.charactersPerPlayer) {
+            nextPlacingPlayer = playerIndex;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          // All players have placed their characters, start the game
+          return {
+            ...prev,
+            players: updatedPlayers,
+            phase: 'playing',
+            currentPlayerIndex: 0,
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        players: updatedPlayers,
+        currentPlacingPlayer: nextPlacingPlayer,
+      };
+    });
+  }, [addLogEntry]);
+
+  const startPlayingPhase = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      phase: 'playing',
+      currentPlayerIndex: 0,
+    }));
+    addLogEntry('Rozpoczęto fazę gry!');
+  }, [addLogEntry]);
+
   const saveMap = useCallback(() => {
     const mapData = JSON.stringify(state.map);
     localStorage.setItem('hexGameMap', mapData);
@@ -432,7 +512,7 @@ export const useGame = () => {
     state,
     currentPlayer: state.players[state.currentPlayerIndex] || null,
     allCharacters: state.players.flatMap(p => p.characters),
-    
+
     // Akcje
     startGame,
     selectCharacter,
@@ -442,6 +522,10 @@ export const useGame = () => {
     performCharacterAttack,
     endTurn,
     placeTerrain,
+    selectTerrainType,
+    startPlacementPhase,
+    placeCharacter,
+    startPlayingPhase,
     saveMap,
     loadMap,
     restart,

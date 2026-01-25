@@ -2,7 +2,7 @@
 // MATEMATYKA HEKSAGONALNA
 // ============================================
 
-import type { Hex, HexType } from '@/types/game';
+import type { Hex, HexType, Character } from '@/types/game';
 import { HEX_SIZE, GRID_WIDTH, GRID_HEIGHT } from '@/types/game';
 
 /**
@@ -29,7 +29,7 @@ export function pixelToHex(x: number, y: number, size: number = HEX_SIZE): Hex {
 export function hexRound(hex: Hex): Hex {
   let q = hex.q;
   let r = hex.r;
-  let s = -q - r;
+  const s = -q - r;
 
   const rq = Math.round(q);
   const rr = Math.round(r);
@@ -43,6 +43,9 @@ export function hexRound(hex: Hex): Hex {
     q = -rr - rs;
   } else if (rDiff > sDiff) {
     r = -rq - rs;
+  } else {
+    q = rq;
+    r = rr;
   }
 
   return { q, r, type: hex.type };
@@ -143,7 +146,7 @@ export function hexReachable(
     const mapHex = getHexFromMap(hex.q, hex.r, map);
     if (!mapHex || mapHex.type === 'wall') continue;
 
-    const moveCost = mapHex.type === 'difficult' ? 2 : 1;
+    const moveCost = (mapHex.type === 'difficult' || mapHex.type === 'mud') ? 2 : 1;
     const newDistance = distance + moveCost;
 
     if (newDistance <= movement) {
@@ -195,15 +198,15 @@ export function createEmptyMap(): Hex[][] {
 /**
  * Sprawdza czy heksagon jest pusty (bez postaci)
  */
-export function isHexEmpty(hex: Hex, characters: any[]): boolean {
-  return !characters.some((char: any) => char.hex.q === hex.q && char.hex.r === hex.r);
+export function isHexEmpty(hex: Hex, characters: Character[]): boolean {
+  return !characters.some((char: Character) => char.hex.q === hex.q && char.hex.r === hex.r);
 }
 
 /**
  * Znajduje postać na danym heksagonie
  */
-export function getCharacterAtHex(hex: Hex, characters: any[]): any {
-  return characters.find((char: any) => char.hex.q === hex.q && char.hex.r === hex.r) || null;
+export function getCharacterAtHex(hex: Hex, characters: Character[]): Character | null {
+  return characters.find((char: Character) => char.hex.q === hex.q && char.hex.r === hex.r) || null;
 }
 
 /**

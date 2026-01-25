@@ -1,19 +1,15 @@
 import { useState, useCallback } from 'react';
 import { HexCanvas } from '@/components/HexCanvas';
 import { GameControls } from '@/components/GameControls';
+import SetupScreen from '@/components/SetupScreen';
+import TerrainPalette from '@/components/TerrainPalette';
+import PlacementPhase from '@/components/PlacementPhase';
+import AttackDialog from '@/components/AttackDialog';
 import { useGame } from '@/hooks/useGame';
 import type { Hex, Character, AttackType } from '@/types/game';
 import { Dices } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Sword, Target } from 'lucide-react';
-import { generateAttackDescription } from '@/utils/combatSystem';
+import { Map, Users, Play } from 'lucide-react';
 
 // ============================================
 // GŁÓWNY KOMPONENT APLIKACJI
@@ -32,6 +28,10 @@ function App() {
     performCharacterAttack,
     endTurn,
     placeTerrain,
+    selectTerrainType,
+    startPlacementPhase,
+    placeCharacter,
+    startPlayingPhase,
     saveMap,
     loadMap,
     restart,
@@ -110,9 +110,9 @@ function App() {
     }
   }, [state.selectedCharacter]);
 
-  const handleStartGame = useCallback((count: number) => {
-    setPlayerCount(count);
-    startGame(count);
+  const handleStartGame = useCallback((config: { playerCount: number; width: number; height: number }) => {
+    setPlayerCount(config.playerCount);
+    startGame(config);
   }, [startGame]);
 
   const handleMove = useCallback(() => {
@@ -147,120 +147,101 @@ function App() {
 
       {/* Główna zawartość */}
       <main className="flex-1 p-4">
-        <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Canvas z mapą */}
-          <div className="lg:col-span-3 h-full min-h-[600px]">
-            <HexCanvas
-              map={state.map}
-              characters={allCharacters}
-              players={state.players}
-              selectedCharacter={state.selectedCharacter}
-              selectedHex={state.selectedHex}
-              hoveredHex={state.hoveredHex}
-              moveRangeHexes={state.moveRangeHexes}
-              attackRangeHexes={state.attackRangeHexes}
-              currentPlayer={currentPlayer}
-              onHexClick={handleHexClick}
-              onHexHover={hoverHex}
-              onCharacterClick={handleCharacterClick}
-              isMapBuilding={state.phase === 'map-building'}
-              selectedTerrainType={'wall'}
-            />
-          </div>
+        {state.phase === 'setup' && (
+          <SetupScreen onStart={handleStartGame} />
+        )}
 
-          {/* Panel sterowania */}
-          <div className="lg:col-span-1 h-full">
-            <GameControls
-              currentPlayer={currentPlayer}
-              selectedCharacter={state.selectedCharacter}
-              gamePhase={state.phase}
-              playerCount={playerCount}
-              gameLog={state.gameLog}
-              onEndTurn={endTurn}
-              onAttack={handleAttack}
-              onMove={handleMove}
-              onRestart={restart}
-              onSaveMap={saveMap}
-              onLoadMap={loadMap}
-              onStartGame={handleStartGame}
-            />
+        {(state.phase === 'map-building' || state.phase === 'placement' || state.phase === 'playing') && (
+          <div className="max-w-7xl mx-auto h-full grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Canvas z mapą */}
+            <div className="lg:col-span-3 h-full min-h-[600px]">
+              <HexCanvas
+                map={state.map}
+                characters={allCharacters}
+                players={state.players}
+                selectedCharacter={state.selectedCharacter}
+                selectedHex={state.selectedHex}
+                hoveredHex={state.hoveredHex}
+                moveRangeHexes={state.moveRangeHexes}
+                attackRangeHexes={state.attackRangeHexes}
+                currentPlayer={currentPlayer}
+                onHexClick={handleHexClick}
+                onHexHover={hoverHex}
+                onCharacterClick={handleCharacterClick}
+                isMapBuilding={state.phase === 'map-building'}
+                selectedTerrainType={state.selectedTerrainType}
+              />
+            </div>
+
+            {/* Panel sterowania */}
+            <div className="lg:col-span-1 h-full space-y-4">
+              {state.phase === 'map-building' && (
+                <div className="space-y-4">
+                  <TerrainPalette
+                    selectedTerrain={state.selectedTerrainType}
+                    onSelect={selectTerrainType}
+                  />
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <Map className="w-5 h-5" />
+                      Budowa mapy
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Kliknij na pola, aby zmienić teren. Aktualnie wybrany: {state.selectedTerrainType}
+                    </p>
+                    <div className="space-y-2">
+                      <Button onClick={saveMap} variant="outline" className="w-full">
+                        Zapisz mapę
+                      </Button>
+                      <Button onClick={loadMap} variant="outline" className="w-full">
+                        Wczytaj mapę
+                      </Button>
+                      <Button onClick={startPlacementPhase} className="w-full bg-green-600 hover:bg-green-700">
+                        <Users className="w-4 h-4 mr-2" />
+                        Rozmieść postacie
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {state.phase === 'placement' && (
+                <PlacementPhase
+                  players={state.players}
+                  characters={allCharacters}
+                  currentPlacingPlayer={state.currentPlacingPlayer}
+                  charactersPerPlayer={state.charactersPerPlayer}
+                  onStartGame={startPlayingPhase}
+                />
+              )}
+
+              {state.phase === 'playing' && (
+                <GameControls
+                  currentPlayer={currentPlayer}
+                  selectedCharacter={state.selectedCharacter}
+                  gamePhase={state.phase}
+                  playerCount={playerCount}
+                  gameLog={state.gameLog}
+                  onEndTurn={endTurn}
+                  onAttack={handleAttack}
+                  onMove={handleMove}
+                  onRestart={restart}
+                  onSaveMap={saveMap}
+                  onLoadMap={loadMap}
+                  onStartGame={handleStartGame}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* Okno dialogowe wyniku ataku */}
-      <Dialog open={attackDialog.isOpen} onOpenChange={(open) => setAttackDialog(prev => ({ ...prev, isOpen: open }))}>
-        <DialogContent className="bg-gray-800 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
-              {attackDialog.result?.isCritical ? (
-                <>
-                  <Sword className="w-5 h-5 text-yellow-500" />
-                  Krytyczne trafienie!
-                </>
-              ) : attackDialog.result?.isFumble ? (
-                <>
-                  <Target className="w-5 h-5 text-red-500" />
-                  Porażka!
-                </>
-              ) : attackDialog.result?.isHit ? (
-                <>
-                  <Sword className="w-5 h-5 text-green-500" />
-                  Trafienie!
-                </>
-              ) : (
-                <>
-                  <Target className="w-5 h-5 text-gray-500" />
-                  Chybienie!
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-gray-300">
-              {attackDialog.result && generateAttackDescription(attackDialog.result)}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-400">Rzut ataku</div>
-                <div className="text-2xl font-bold text-blue-400">
-                  {attackDialog.result?.attackRoll}
-                  {attackDialog.result && attackDialog.result.attackRoll !== 1 && attackDialog.result.attackRoll !== 20 && (
-                    <span className="text-sm text-gray-400 ml-1">
-                      (+{Math.floor((attackDialog.result.attacker.strength - 10) / 2)})
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-400">Rzut obrony</div>
-                <div className="text-2xl font-bold text-red-400">
-                  {attackDialog.result?.defenseRoll || '-'}
-                  {attackDialog.result && attackDialog.result.defenseRoll > 0 && (
-                    <span className="text-sm text-gray-400 ml-1">
-                      (+{Math.floor((attackDialog.result.defender.dexterity - 10) / 2)})
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            {attackDialog.result?.isHit && (
-              <div className="bg-gray-700 p-3 rounded text-center">
-                <div className="text-sm text-gray-400">Zadane obrażenia</div>
-                <div className="text-3xl font-bold text-red-500">
-                  {attackDialog.result.damage}
-                </div>
-              </div>
-            )}
-          </div>
-          <Button 
-            onClick={() => setAttackDialog({ isOpen: false, result: null })}
-            className="w-full mt-4"
-          >
-            OK
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <AttackDialog
+        isOpen={attackDialog.isOpen}
+        result={attackDialog.result}
+        onClose={() => setAttackDialog({ isOpen: false, result: null })}
+      />
 
       {/* Ekran końca gry */}
       {state.winner && (

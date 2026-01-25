@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import type { Hex, Character, Player, HexType } from '@/types/game';
 import {
   HEX_COLORS,
@@ -19,7 +19,7 @@ interface HexCanvasProps {
   map: Hex[][];
   characters: Character[];
   players: Player[];
-  
+
   // Stan gry
   selectedCharacter: Character | null;
   selectedHex: Hex | null;
@@ -27,12 +27,12 @@ interface HexCanvasProps {
   moveRangeHexes: Hex[];
   attackRangeHexes: Hex[];
   currentPlayer: Player | null;
-  
+
   // Callbacki
   onHexClick: (hex: Hex) => void;
   onHexHover: (hex: Hex | null) => void;
   onCharacterClick: (character: Character) => void;
-  
+
   // Tryb
   isMapBuilding: boolean;
   selectedTerrainType: HexType;
@@ -55,9 +55,12 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
   onHexClick,
   onHexHover,
   onCharacterClick,
+  isMapBuilding,
+  selectedTerrainType,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isPainting, setIsPainting] = useState(false);
 
   // ==========================================
   // RYSOWANIE
@@ -84,7 +87,7 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
       }
     }
     ctx.closePath();
-    
+
     ctx.fillStyle = fillColor;
     ctx.fill();
     ctx.strokeStyle = strokeColor;
@@ -103,7 +106,7 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
     isCurrentPlayer: boolean
   ) => {
     const charSize = size * 0.7;
-    
+
     // Cień/aura
     if (isSelected) {
       ctx.beginPath();
@@ -111,7 +114,7 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
       ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.fill();
     }
-    
+
     if (isCurrentPlayer) {
       ctx.beginPath();
       ctx.arc(centerX, centerY, charSize + 2, 0, Math.PI * 2);
@@ -119,7 +122,7 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-    
+
     // Postać (koło)
     ctx.beginPath();
     ctx.arc(centerX, centerY, charSize, 0, Math.PI * 2);
@@ -128,21 +131,21 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
     ctx.stroke();
-    
+
     // Pasek HP
     const hpPercent = character.hp / character.maxHp;
     const barWidth = charSize * 1.5;
     const barHeight = 4;
     const barY = centerY + size * 0.8;
-    
+
     // Tło paska
     ctx.fillStyle = '#333333';
     ctx.fillRect(centerX - barWidth / 2, barY, barWidth, barHeight);
-    
+
     // HP
     ctx.fillStyle = hpPercent > 0.5 ? '#22C55E' : hpPercent > 0.25 ? '#EAB308' : '#EF4444';
     ctx.fillRect(centerX - barWidth / 2, barY, barWidth * hpPercent, barHeight);
-    
+
     // Imię postaci
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 10px Arial';
@@ -154,13 +157,13 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
   const drawGrid = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     // Wyczyść canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Tło
     ctx.fillStyle = '#1F2937';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -172,7 +175,7 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
         if (!hex) continue;
 
         const { x, y } = hexToPixel(hex, HEX_SIZE);
-        
+
         // Pomijaj heksagony poza widocznym obszarem
         if (x < -HEX_SIZE || x > canvas.width + HEX_SIZE || y < -HEX_SIZE || y > canvas.height + HEX_SIZE) {
           continue;
@@ -310,6 +313,58 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
   }, [onHexHover]);
 
   // ==========================================
+  // MAP BUILDING EVENT HANDLERS
+  // ==========================================
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isMapBuilding && e.button === 0) {
+      setIsPainting(true);
+      handleCanvasClick(e);
+    }
+  }, [isMapBuilding, handleCanvasClick]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPainting(false);
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    handleCanvasMouseMove(e);
+
+    if (isPainting && isMapBuilding && selectedTerrainType) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const hex = pixelToHex(x, y, HEX_SIZE);
+
+      if (hex.q >= 0 && hex.q < map.length && hex.r >= 0 && hex.r < map[0].length) {
+        onHexClick(hex);
+      }
+    }
+  }, [isPainting, isMapBuilding, selectedTerrainType, handleCanvasMouseMove, map, onHexClick]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (isMapBuilding) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const hex = pixelToHex(x, y, HEX_SIZE);
+
+      if (hex.q >= 0 && hex.q < map.length && hex.r >= 0 && hex.r < map[0].length) {
+        // Right-click to erase (set to normal)
+        const normalHex = { ...hex, type: 'normal' as HexType };
+        onHexClick(normalHex);
+      }
+    }
+  }, [isMapBuilding, map, onHexClick]);
+
+  // ==========================================
   // EFFECTS
   // ==========================================
 
@@ -326,7 +381,7 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
       const rect = container.getBoundingClientRect();
       canvas.width = rect.width;
       canvas.height = rect.height;
-      
+
       drawGrid();
     };
 
@@ -345,8 +400,11 @@ export const HexCanvas: React.FC<HexCanvasProps> = ({
         ref={canvasRef}
         className="w-full h-full cursor-pointer"
         onClick={handleCanvasClick}
-        onMouseMove={handleCanvasMouseMove}
+        onMouseMove={handleMouseMove}
         onMouseLeave={handleCanvasMouseLeave}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onContextMenu={handleContextMenu}
       />
     </div>
   );

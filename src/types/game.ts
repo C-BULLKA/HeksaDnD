@@ -2,9 +2,9 @@
 // TYPY PODSTAWOWE
 // ============================================
 
-export type HexType = 'normal' | 'difficult' | 'wall' | 'water';
+export type HexType = 'normal' | 'mud' | 'wall' | 'difficult' | 'water';
 export type AttackType = 'melee' | 'ranged';
-export type GamePhase = 'setup' | 'map-building' | 'playing' | 'ended';
+export type GamePhase = 'setup' | 'map-building' | 'placement' | 'playing' | 'ended';
 
 // ============================================
 // INTERFEJSY GŁÓWNE
@@ -57,6 +57,9 @@ export interface GameState {
   attackRangeHexes: Hex[];
   gameLog: GameLogEntry[];
   winner: Player | null;
+  currentPlacingPlayer: number;
+  charactersPerPlayer: number;
+  selectedTerrainType: HexType;
 }
 
 export interface GameLogEntry {
@@ -91,6 +94,7 @@ export const PLAYER_COLORS = [
 
 export const HEX_COLORS: Record<HexType, string> = {
   normal: '#6B7280',     // Szary
+  mud: '#92400E',        // Brązowy (trudny teren)
   difficult: '#92400E',  // Brązowy (trudny teren)
   wall: '#1F2937',       // Ciemnoszary (nieprzejezdny)
   water: '#0EA5E9',      // Błękitny (woda)
