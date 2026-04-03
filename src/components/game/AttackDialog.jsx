@@ -44,33 +44,57 @@ export default function AttackDialog({ isOpen, onClose, result }) {
               </div>
               {result.attackRoll === 20 && <div className="text-yellow-400 text-sm">NAT 20!</div>}
               {result.attackRoll === 1 && <div className="text-red-400 text-sm">NAT 1!</div>}
+              <div className="text-gray-400 text-sm">
+                {result.attackStatLabel}: +{result.attackStatRoll}
+              </div>
+              <div className="text-gray-500 text-xs">
+                Suma ataku: {result.attackTotal}
+              </div>
             </div>
             
             <div className="bg-gray-700 p-4 rounded-lg text-center">
-              <div className="text-gray-400 text-sm">Obrona celu</div>
+              <div className="text-gray-400 text-sm">Klasa Pancerza celu</div>
               <div className="text-3xl font-bold text-purple-400">
-                {result.defenderAC}
+                {result.targetAC}
               </div>
-              <div className="text-gray-500 text-sm">Klasa pancerza</div>
+              <div className="text-gray-500 text-sm mt-2">Cel trafiony, gdy suma ataku &gt;= KP</div>
             </div>
           </div>
 
           {result.isHit && (
             <div className="bg-red-900/30 border border-red-700 p-4 rounded-lg text-center">
-              <div className="text-gray-400 text-sm">Zadane obrażenia</div>
+              <div className="text-gray-400 text-sm">Obrażenia</div>
               <div className={`text-4xl font-bold ${result.isCritical ? "text-yellow-400" : "text-red-400"}`}>
                 {result.damage}
               </div>
+              <div className="text-gray-500 text-sm mt-1">
+                Siła jako maksimum: {result.maxDamage} | Skuteczność: {Math.round(result.hitQuality * 100)}%
+              </div>
               {result.isCritical && (
-                <div className="text-yellow-400 text-sm mt-1">Podwójne obrażenia!</div>
+                <div className="text-yellow-400 text-sm mt-1">Krytyk: zadaje maksymalną siłę obrażeń!</div>
               )}
+            </div>
+          )}
+
+          {result.shieldRoll !== null && (
+            <div className={`p-4 rounded-lg text-center border ${result.shieldBlocked ? 'bg-emerald-900/30 border-emerald-700' : 'bg-gray-700 border-gray-600'}`}>
+              <div className="text-gray-400 text-sm">Blok tarczą</div>
+              <div className="text-3xl font-bold text-emerald-400">
+                {result.shieldTotal}
+              </div>
+              <div className="text-gray-500 text-sm mt-1">
+                Rzut: {result.shieldRoll} | Siła: +{result.shieldMod}
+              </div>
+              <div className="text-gray-500 text-sm mt-1">
+                {result.shieldBlocked ? 'Blok udany - obrażenia zmniejszone o połowę' : 'Blok nieudany'}
+              </div>
             </div>
           )}
 
           <div className="text-gray-400 text-sm">
             <strong>{result.attacker?.name}</strong> atakuje <strong>{result.defender?.name}</strong>
             {result.isHit && (
-              <span> i zadaje <span className="text-red-400">{result.damage} obrażeń</span>!</span>
+              <span> i trafia za <span className="text-red-400">{result.damage} obrażeń</span>!</span>
             )}
             {!result.isHit && !result.isFumble && (
               <span> ale chybia!</span>

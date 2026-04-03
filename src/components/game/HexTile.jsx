@@ -131,17 +131,41 @@ export default function HexTile({
             stroke="#000"
             strokeWidth={2}
           />
-          <text
-            x={0}
-            y={0}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="white"
-            fontSize={10}
-            fontWeight="bold"
-          >
-            {character.name}
-          </text>
+          {character.role === 'tank' ? (
+            <g>
+              <path
+                d="M 0 -12 L 8 -7 L 6 4 L 0 10 L -6 4 L -8 -7 Z"
+                fill="#E2E8F0"
+                stroke="#0F172A"
+                strokeWidth={1.5}
+              />
+              <path
+                d="M -2 -4 L 2 -4 L 3 1 L 0 5 L -3 1 Z"
+                fill={playerColor}
+                opacity={0.9}
+              />
+            </g>
+          ) : (
+            <g>
+              <path
+                d="M -7 -8 Q 2 -12 7 -3 Q 10 4 4 9"
+                fill="none"
+                stroke="#E2E8F0"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+              <path
+                d="M -5 0 L 8 0"
+                stroke="#E2E8F0"
+                strokeWidth={1.75}
+                strokeLinecap="round"
+              />
+              <path
+                d="M 8 0 L 4 -2 L 4 2 Z"
+                fill="#E2E8F0"
+              />
+            </g>
+          )}
           <rect
             x={-size * 0.6}
             y={size * 0.5}

@@ -7,47 +7,67 @@ import PlacementPhase from '@/components/game/PlacementPhase';
 import AttackDialog from '@/components/game/AttackDialog';
 import { Button } from "@/components/ui/button";
 import { Dices, ArrowRight } from 'lucide-react';
+import archerImage from '../../archer.bmp';
+import warriorImage from '../../wojownik.bmp';
 
 const PLAYER_COLORS = ['#DC2626', '#2563EB', '#16A34A', '#EAB308'];
 const CHARACTERS_PER_PLAYER = 2;
+const CHARACTER_LOADOUT = ['tank', 'shooter'];
+
+const CHARACTER_TYPES = {
+  tank: {
+    label: 'Tank',
+    shortLabel: 'T',
+    maxHp: 40,
+    armorClass: 12,
+    stats: {
+      strength: 16,
+      dexterity: 10,
+      constitution: 16,
+    },
+    attackRange: 1,
+    attackStat: 'strength',
+  },
+  shooter: {
+    label: 'Strzelec',
+    shortLabel: 'S',
+    maxHp: 20,
+    armorClass: 6,
+    stats: {
+      strength: 10,
+      dexterity: 16,
+      constitution: 12,
+    },
+    attackRange: 2,
+    attackStat: 'dexterity',
+  },
+};
 
 function rollD20() {
   return Math.floor(Math.random() * 20) + 1;
-}
-
-function rollDice(sides) {
-  return Math.floor(Math.random() * sides) + 1;
 }
 
 function calculateModifier(stat) {
   return Math.floor((stat - 10) / 2);
 }
 
-function rollStats() {
-  const roll4d6DropLowest = () => {
-    const rolls = [rollDice(6), rollDice(6), rollDice(6), rollDice(6)];
-    rolls.sort((a, b) => b - a);
-    return rolls[0] + rolls[1] + rolls[2];
-  };
-  return {
-    strength: roll4d6DropLowest(),
-    dexterity: roll4d6DropLowest(),
-    constitution: roll4d6DropLowest(),
-  };
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
-function createCharacter(playerId, q, r, name) {
-  const stats = rollStats();
-  const conMod = calculateModifier(stats.constitution);
-  const dexMod = calculateModifier(stats.dexterity);
-  const maxHp = Math.max(1, 10 + conMod);
-  const armorClass = Math.max(1, 10 + dexMod);
+function createCharacter(playerId, q, r, name, role) {
+  const typeConfig = CHARACTER_TYPES[role] || CHARACTER_TYPES.tank;
+  const stats = typeConfig.stats;
+  const maxHp = typeConfig.maxHp;
+  const armorClass = typeConfig.armorClass;
   return {
     id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     playerId,
     q,
     r,
     name,
+    role,
+    roleLabel: typeConfig.label,
     hp: maxHp,
     maxHp,
     strength: stats.strength,
@@ -73,6 +93,69 @@ function getNeighbors(q, r) {
     { q: q - 1, r: r + 1 },
     { q: q, r: r + 1 },
   ];
+}
+
+function axialToCube(q, r) {
+  return { x: q, y: -q - r, z: r };
+}
+
+function cubeToAxial(cube) {
+  return { q: cube.x, r: cube.z };
+}
+
+function cubeLerp(a, b, t) {
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    z: a.z + (b.z - a.z) * t,
+  };
+}
+
+function cubeRound(cube) {
+  let rx = Math.round(cube.x);
+  let ry = Math.round(cube.y);
+  let rz = Math.round(cube.z);
+
+  const xDiff = Math.abs(rx - cube.x);
+  const yDiff = Math.abs(ry - cube.y);
+  const zDiff = Math.abs(rz - cube.z);
+
+  if (xDiff > yDiff && xDiff > zDiff) {
+    rx = -ry - rz;
+  } else if (yDiff > zDiff) {
+    ry = -rx - rz;
+  } else {
+    rz = -rx - ry;
+  }
+
+  return { x: rx, y: ry, z: rz };
+}
+
+function getHexLine(q1, r1, q2, r2) {
+  const start = axialToCube(q1, r1);
+  const end = axialToCube(q2, r2);
+  const distance = hexDistance(q1, r1, q2, r2);
+  const results = [];
+
+  for (let step = 0; step <= distance; step++) {
+    const t = distance === 0 ? 0 : step / distance;
+    results.push(cubeToAxial(cubeRound(cubeLerp(start, end, t))));
+  }
+
+  return results;
+}
+
+function hasLineOfSight(q1, r1, q2, r2, hexMap) {
+  const line = getHexLine(q1, r1, q2, r2);
+
+  for (let index = 1; index < line.length - 1; index++) {
+    const hex = line[index];
+    if ((hexMap[`${hex.q},${hex.r}`] || 'normal') === 'wall') {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function calculateMoveRange(startQ, startR, maxMove, hexMap, width, height, characters, currentCharId) {
@@ -107,12 +190,12 @@ function calculateMoveRange(startQ, startR, maxMove, hexMap, width, height, char
   return reachable;
 }
 
-function calculateAttackRange(q, r, range, characters, playerId) {
+function calculateAttackRange(q, r, range, characters, playerId, hexMap) {
   const targets = [];
   for (const char of characters) {
     if (char.playerId !== playerId && char.hp > 0) {
       const dist = hexDistance(q, r, char.q, char.r);
-      if (dist <= range && dist > 0) {
+      if (dist <= range && dist > 0 && hasLineOfSight(q, r, char.q, char.r, hexMap)) {
         targets.push({ q: char.q, r: char.r });
       }
     }
@@ -134,6 +217,7 @@ export default function Game() {
   const [attackResult, setAttackResult] = useState(null);
   const [showAttackDialog, setShowAttackDialog] = useState(false);
   const [currentPlacingPlayer, setCurrentPlacingPlayer] = useState(0);
+  const [selectedPlacementRole, setSelectedPlacementRole] = useState('tank');
   const handleSetupComplete = useCallback((setupConfig) => {
     setConfig(setupConfig);
     setPhase('map-building');
@@ -161,9 +245,13 @@ export default function Game() {
   const handleFinishMapBuilding = useCallback(() => {
     setPhase('placement');
     setCurrentPlacingPlayer(0);
+    setSelectedPlacementRole('tank');
     setCharacters([]);
     addLog('Faza rozmieszczania postaci - każdy gracz umieszcza swoje postacie', 'info');
   }, []);
+  const getPlacedRoleCount = useCallback((playerId, role) => {
+    return characters.filter(c => c.playerId === playerId && c.role === role).length;
+  }, [characters]);
   const handlePlacementClick = useCallback((q, r) => {
     const terrainType = hexMap[`${q},${r}`] || 'normal';
     if (terrainType === 'wall') return;
@@ -175,21 +263,27 @@ export default function Game() {
     const playerCharCount = characters.filter(c => c.playerId === currentPlayer.id).length;
     
     if (playerCharCount >= CHARACTERS_PER_PLAYER) return;
+
+    const role = selectedPlacementRole;
+    if (getPlacedRoleCount(currentPlayer.id, role) >= 1) return;
     
     const charName = `${currentPlayer.name[0]}${playerCharCount + 1}`;
-    const newChar = createCharacter(currentPlayer.id, q, r, charName);
+    const newChar = createCharacter(currentPlayer.id, q, r, charName, role);
     
     setCharacters(prev => [...prev, newChar]);
-    addLog(`${currentPlayer.name} umieszcza postać ${charName} na (${q}, ${r})`, 'info');
+    addLog(`${currentPlayer.name} umieszcza ${newChar.roleLabel.toLowerCase()} ${charName} na (${q}, ${r})`, 'info');
     
-    if (playerCharCount + 1 >= CHARACTERS_PER_PLAYER) {
+    const nextPlayerHasTank = getPlacedRoleCount(currentPlayer.id, 'tank') + (role === 'tank' ? 1 : 0) >= 1;
+    const nextPlayerHasShooter = getPlacedRoleCount(currentPlayer.id, 'shooter') + (role === 'shooter' ? 1 : 0) >= 1;
+    if (nextPlayerHasTank && nextPlayerHasShooter) {
       const nextPlayer = (currentPlacingPlayer + 1) % players.length;
       const nextPlayerCharCount = characters.filter(c => c.playerId === players[nextPlayer]?.id).length;
       if (nextPlayerCharCount < CHARACTERS_PER_PLAYER) {
         setCurrentPlacingPlayer(nextPlayer);
+        setSelectedPlacementRole('tank');
       }
     }
-  }, [hexMap, characters, players, currentPlacingPlayer]);
+  }, [hexMap, characters, players, currentPlacingPlayer, selectedPlacementRole, getPlacedRoleCount]);
   const handleStartGameFromPlacement = useCallback(() => {
     setCharacters(prev => prev.map(c => ({
       ...c,
@@ -204,6 +298,9 @@ export default function Game() {
     setGameLog(prev => [...prev, { message, type, timestamp: Date.now() }]);
   }, []);
   const currentPlayer = players[currentPlayerIndex];
+  const selectedCharacterImage = selectedCharacter
+    ? (selectedCharacter.role === 'shooter' ? archerImage : warriorImage)
+    : null;
   
   const moveRangeHexes = useMemo(() => {
     if (!selectedCharacter || !selectedCharacter.canMove || phase !== 'playing') return [];
@@ -226,15 +323,18 @@ export default function Game() {
   const attackRangeHexes = useMemo(() => {
     if (!selectedCharacter || !selectedCharacter.canAttack || phase !== 'playing') return [];
     if (selectedCharacter.playerId !== currentPlayer?.id) return [];
+
+    const typeConfig = CHARACTER_TYPES[selectedCharacter.role] || CHARACTER_TYPES.tank;
     
     return calculateAttackRange(
       selectedCharacter.q,
       selectedCharacter.r,
-      2,
+      typeConfig.attackRange,
       characters,
-      selectedCharacter.playerId
+      selectedCharacter.playerId,
+      hexMap
     );
-  }, [selectedCharacter, characters, phase, currentPlayer]);
+  }, [selectedCharacter, characters, phase, currentPlayer, hexMap]);
   const handleHexClick = useCallback((q, r) => {
     if (phase === 'placement') {
       handlePlacementClick(q, r);
@@ -287,18 +387,36 @@ export default function Game() {
   }, [addLog]);
   const performAttack = useCallback((attacker, defender) => {
     const attackRoll = rollD20();
-    const strMod = calculateModifier(attacker.strength);
+    const attackConfig = CHARACTER_TYPES[attacker.role] || CHARACTER_TYPES.tank;
+    const attackStat = attackConfig.attackStat === 'dexterity' ? attacker.dexterity : attacker.strength;
+    const attackMod = calculateModifier(attackStat);
     
     const isCritical = attackRoll === 20;
     const isFumble = attackRoll === 1;
-    const attackTotal = attackRoll + strMod;
+    const attackTotal = attackRoll + attackMod;
     const isHit = isCritical || (!isFumble && attackTotal >= defender.armorClass);
     
+    const maxDamage = Math.max(1, attacker.strength);
+    const hitQuality = clamp(0.25 + Math.max(0, attackTotal - defender.armorClass) * 0.05, 0.25, 1);
+    let rawDamage = 0;
     let damage = 0;
+    let shieldRoll = null;
+    let shieldMod = null;
+    let shieldTotal = null;
+    let shieldBlocked = false;
     if (isHit) {
-      const baseDamage = rollDice(8);
-      damage = isCritical ? (baseDamage + rollDice(8) + strMod * 2) : (baseDamage + strMod);
-      damage = Math.max(1, damage);
+      rawDamage = isCritical ? maxDamage : Math.max(1, Math.ceil(maxDamage * hitQuality));
+      damage = rawDamage;
+
+      if (defender.role === 'tank') {
+        shieldRoll = rollD20();
+        shieldMod = calculateModifier(defender.strength);
+        shieldTotal = shieldRoll + shieldMod;
+        shieldBlocked = shieldTotal >= 15;
+        if (shieldBlocked) {
+          damage = Math.max(1, Math.ceil(damage / 2));
+        }
+      }
     }
     
     const newDefenderHp = Math.max(0, defender.hp - damage);
@@ -320,17 +438,27 @@ export default function Game() {
       attacker,
       defender,
       attackRoll,
-      defenderAC: defender.armorClass,
+      attackStatLabel: attackConfig.attackStat === 'dexterity' ? 'Zręczność' : 'Siła',
+      attackStatRoll: attackMod,
+      attackTotal,
+      targetAC: defender.armorClass,
+      maxDamage,
+      hitQuality,
       isHit,
       isCritical,
       isFumble,
+      rawDamage,
       damage,
+      shieldRoll,
+      shieldMod,
+      shieldTotal,
+      shieldBlocked,
       defenderHpAfter: newDefenderHp,
     });
     setShowAttackDialog(true);
     
     if (isCritical) {
-      addLog(`KRYTYK! ${attacker.name} zadaje ${damage} obrażeń ${defender.name}!`, 'critical');
+      addLog(`KRYTYK! ${attacker.name} przebija obronę ${defender.name} za ${damage} obrażeń!`, 'critical');
     } else if (isHit) {
       addLog(`${attacker.name} trafia ${defender.name} za ${damage} obrażeń!`, 'attack');
     } else {
@@ -386,14 +514,15 @@ export default function Game() {
     setGameLog([]);
     setCurrentPlayerIndex(0);
     setCurrentPlacingPlayer(0);
+    setSelectedPlacementRole('tank');
   }, []);
   if (phase === 'setup') {
     return <SetupScreen onStart={handleSetupComplete} />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 border-b border-gray-700 p-4">
+    <div className="min-h-screen text-white bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(220,38,38,0.18),transparent_28%),linear-gradient(180deg,#020617_0%,#0f172a_50%,#020617_100%)]">
+      <header className="border-b border-white/10 bg-slate-950/70 backdrop-blur-md p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-blue-500 rounded flex items-center justify-center">
@@ -432,6 +561,10 @@ export default function Game() {
                 characters={characters}
                 currentPlacingPlayer={currentPlacingPlayer}
                 charactersPerPlayer={CHARACTERS_PER_PLAYER}
+                selectedPlacementRole={selectedPlacementRole}
+                onSelectPlacementRole={setSelectedPlacementRole}
+                currentPlayerTankPlaced={getPlacedRoleCount(players[currentPlacingPlayer]?.id, 'tank')}
+                currentPlayerShooterPlaced={getPlacedRoleCount(players[currentPlacingPlayer]?.id, 'shooter')}
                 onStartGame={handleStartGameFromPlacement}
               />
             </div>
@@ -459,6 +592,7 @@ export default function Game() {
               phase={phase}
               currentPlayer={currentPlayer}
               selectedCharacter={selectedCharacter}
+              selectedCharacterImage={selectedCharacterImage}
               players={players}
               gameLog={gameLog}
               onEndTurn={handleEndTurn}

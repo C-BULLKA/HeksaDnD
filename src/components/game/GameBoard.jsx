@@ -110,7 +110,7 @@ export default function GameBoard({
   };
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-auto p-4" style={{ maxHeight: '70vh' }}>
+    <div className="rounded-2xl border border-white/10 bg-slate-950/70 shadow-2xl shadow-slate-950/40 overflow-auto p-4 backdrop-blur-sm" style={{ maxHeight: '70vh' }}>
       <svg
         width={svgWidth}
         height={svgHeight}
@@ -119,7 +119,7 @@ export default function GameBoard({
         onMouseLeave={handleMouseUp}
         onMouseMove={handleMouseMove}
         onContextMenu={handleContextMenu}
-        className="select-none"
+        className="select-none drop-shadow-[0_0_24px_rgba(15,23,42,0.35)]"
       >
         {hexagons.map((hex) => {
           const character = getCharacterAt(hex.q, hex.r);

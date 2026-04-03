@@ -2,13 +2,17 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Play, AlertCircle } from 'lucide-react';
+import { UserPlus, Play, AlertCircle, Shield, Crosshair } from 'lucide-react';
 
 export default function PlacementPhase({ 
   players, 
   characters, 
   currentPlacingPlayer,
   charactersPerPlayer,
+  selectedPlacementRole,
+  onSelectPlacementRole,
+  currentPlayerTankPlaced,
+  currentPlayerShooterPlaced,
   onStartGame,
 }) {
   const getPlacedCount = (playerId) => {
@@ -28,8 +32,35 @@ export default function PlacementPhase({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-gray-400 text-sm">
-          Każdy gracz musi umieścić {charactersPerPlayer} postacie na mapie.
-          Kliknij na puste pole, aby postawić postać.
+          Każdy gracz musi umieścić {charactersPerPlayer} postacie na mapie: jednego tanka i jednego strzelca.
+          Wybierz rolę, a potem kliknij puste pole, aby postawić postać.
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={selectedPlacementRole === 'tank' ? 'default' : 'outline'}
+            className={selectedPlacementRole === 'tank' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+            onClick={() => onSelectPlacementRole('tank')}
+            disabled={currentPlayerTankPlaced >= 1}
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Tank {currentPlayerTankPlaced >= 1 ? '(ustawiony)' : ''}
+          </Button>
+          <Button
+            type="button"
+            variant={selectedPlacementRole === 'shooter' ? 'default' : 'outline'}
+            className={selectedPlacementRole === 'shooter' ? 'bg-sky-600 hover:bg-sky-700' : ''}
+            onClick={() => onSelectPlacementRole('shooter')}
+            disabled={currentPlayerShooterPlaced >= 1}
+          >
+            <Crosshair className="w-4 h-4 mr-2" />
+            Strzelec {currentPlayerShooterPlaced >= 1 ? '(ustawiony)' : ''}
+          </Button>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          Aktualnie wybrana rola: {selectedPlacementRole === 'tank' ? 'tank' : 'strzelec'}
         </div>
 
         <div className="space-y-2">
@@ -80,7 +111,7 @@ export default function PlacementPhase({
               {currentPlayer.name} - umieść postać
             </div>
             <div className="text-gray-400 text-sm">
-              Kliknij na dowolne puste pole na mapie
+              Kliknij na dowolne puste pole na mapie. 1. pionek to tank, 2. to strzelec.
             </div>
           </div>
         )}

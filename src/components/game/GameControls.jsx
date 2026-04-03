@@ -2,12 +2,13 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sword, Move, RotateCcw, Save, Play } from 'lucide-react';
+import { Sword, Move, RotateCcw, Save, Play, Shield, Crosshair } from 'lucide-react';
 
 export default function GameControls({
   phase,
   currentPlayer,
   selectedCharacter,
+  selectedCharacterImage,
   players,
   gameLog,
   onEndTurn,
@@ -61,6 +62,27 @@ export default function GameControls({
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="text-white font-bold">{selectedCharacter.name}</div>
+
+            {selectedCharacterImage && (
+              <div className="rounded-lg border border-white/10 bg-slate-950/70 p-3">
+                <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">
+                  Portret jednostki
+                </div>
+                <img
+                  src={selectedCharacterImage}
+                  alt={selectedCharacter.roleLabel}
+                  className="w-full max-h-48 object-contain rounded-md bg-black/20"
+                />
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Badge className={selectedCharacter.role === 'tank' ? 'bg-emerald-600' : 'bg-sky-600'}>
+                {selectedCharacter.role === 'tank' ? <Shield className="w-3 h-3 mr-1" /> : <Crosshair className="w-3 h-3 mr-1" />}
+                {selectedCharacter.roleLabel}
+              </Badge>
+              <Badge variant="outline">Zasięg ataku: {selectedCharacter.role === 'tank' ? 1 : 2}</Badge>
+            </div>
             
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="text-gray-400">HP:</div>
@@ -72,7 +94,7 @@ export default function GameControls({
               <div className="text-gray-400">Zręczność:</div>
               <div className="text-white">{selectedCharacter.dexterity}</div>
               
-              <div className="text-gray-400">Pancerz:</div>
+              <div className="text-gray-400">KP:</div>
               <div className="text-white">{selectedCharacter.armorClass}</div>
             </div>
             
